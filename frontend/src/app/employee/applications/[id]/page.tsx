@@ -8,6 +8,7 @@ interface ApplicationAnalysis {
     similarityScore: number;
     jobText: string;
     userCvText: string;
+    aiSummary: string;
     applicantName: string;
     jobTitle: string;
 }
@@ -89,6 +90,26 @@ export default function ApplicationDetailsPage() {
                             <p className="text-sm text-gray-500 uppercase tracking-wider font-semibold mb-1">Match Score</p>
                             <p className={`text-5xl font-bold ${getScoreColor(analysis.similarityScore)}`}>
                                 {analysis.similarityScore}%
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* AI Summary Section (RAG) */}
+                    <div className="mb-10 bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-xl border border-blue-100 shadow-sm transition-all hover:shadow-md">
+                        <div className="flex items-center mb-4">
+                            <div className="bg-blue-600 text-white p-2.5 rounded-lg mr-4 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">AI Smart Summary</h2>
+                                <p className="text-xs text-blue-600 font-medium uppercase tracking-wider">Powered by AI Engine</p>
+                            </div>
+                        </div>
+                        <div className="bg-white/60 backdrop-blur-sm p-5 rounded-lg border border-white/80 shadow-inner">
+                            <p className="text-gray-800 text-lg leading-relaxed italic">
+                                "{analysis.aiSummary}"
                             </p>
                         </div>
                     </div>

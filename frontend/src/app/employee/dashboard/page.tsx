@@ -6,7 +6,7 @@ export default function EmployeeDashboard() {
     const [activeTab, setActiveTab] = useState("total");
 
     const handleLogout = () => {
-        localStorage.removeItem("token");
+        localStorage.removeItem("employeeToken");
         window.location.href = "/employee/login";
     };
 
@@ -30,8 +30,8 @@ export default function EmployeeDashboard() {
                             Jobs You Added
                         </button>
                         <button
-                            onClick={() => setActiveTab("applied")}
-                            className={`px-4 py-2 rounded ${activeTab === "applied" ? "bg-blue-800" : "hover:bg-blue-700"}`}
+                            onClick={() => window.location.href = "/employee/applications"}
+                            className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
                         >
                             Applied to Your Jobs
                         </button>
@@ -66,14 +66,6 @@ export default function EmployeeDashboard() {
                         <h2 className="text-2xl font-bold mb-4">Jobs You Added</h2>
                         <p>Display jobs posted by this employee.</p>
                         {/* TODO: Fetch and display employee's posted jobs */}
-                    </div>
-                )}
-
-                {activeTab === "applied" && (
-                    <div>
-                        <h2 className="text-2xl font-bold mb-4">Applications to Your Jobs</h2>
-                        <p>Display applications received for jobs posted by this employee.</p>
-                        {/* TODO: Fetch and display applications */}
                     </div>
                 )}
             </div>

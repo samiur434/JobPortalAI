@@ -11,7 +11,9 @@ export const authMiddleware = (
     next: NextFunction
 ) => {
     const authHeader = req.headers.authorization;
+    console.log("[Auth] Method:", req.method, "URL:", req.originalUrl);
     if (!authHeader) {
+        console.log("[Auth] No auth header provided");
         return res.status(401).json({ message: "No token provided" });
     }
 
@@ -22,9 +24,11 @@ export const authMiddleware = (
             token,
             process.env.JWT_SECRET || "supersecret"
         );
+        console.log("[Auth] Decoded token:", decoded);
         req.user = decoded;
         next();
-    } catch {
+    } catch (err) {
+        console.error("[Auth] Token verification failed:", err);
         res.status(401).json({ message: "Invalid token" });
     }
 };

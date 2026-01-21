@@ -4,6 +4,7 @@ import Job from "../models/Job";
 import Embedding from "../models/Embedding";
 import AppliedJob from "../models/AppliedJob";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
+import { cosineSimilarity } from "../utils/similarity";
 
 const router = express.Router();
 const hf = new HfInference(process.env.HUGGINGFACE_API_KEY!);
@@ -26,6 +27,12 @@ router.post("/post", authMiddleware, async (req: AuthRequest, res) => {
         } = req.body;
 
         // Create the job
+        console.log("Creating job for user:", req.user);
+        if (!req.user || !req.user.employeeId) {
+            console.error("Missing employeeId in req.user");
+            return res.status(401).json({ message: "Invalid token data: employeeId missing" });
+        }
+
         const newJob = new Job({
             employeeId: req.user.employeeId, // Assuming employee token
             vacancy,
@@ -247,70 +254,122 @@ router.put("/application/:applicationId/status", authMiddleware, async (req: Aut
     }
 });
 
+
+
 // Get application analysis (similarity score)
 router.get("/application/:applicationId/analysis", authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { applicationId } = req.params;
         const employeeId = req.user.employeeId;
 
-        console.log(`Analyzing application: ${applicationId} for employee: ${employeeId}`);
+        console.log(`[Analysis] Request for Application ID: ${applicationId}`);
+        console.log(`[Analysis] Employee ID: ${employeeId}`);
 
-        // 1. Fetch Application to get Job and User IDs
+        // 1. Fetch Application
         const application = await AppliedJob.findById(applicationId)
             .populate("jobId", "companyInfo vacancy")
             .populate("userId", "firstName lastName email");
 
         if (!application) {
-            console.log("Application not found");
+            console.log("[Analysis] Application not found");
             return res.status(404).json({ message: "Application not found" });
         }
 
-        // Verify ownership (optional, but good practice)
+        if (!application.jobId || !application.userId) {
+            console.log("[Analysis] Related Job or User not found on application object");
+            return res.status(404).json({ message: "Job or User data missing" });
+        }
+
+        // Verify ownership
         if (application.employeeId.toString() !== employeeId) {
-            console.log("Unauthorized access to application");
+            console.log("[Analysis] Unauthorized access attempt");
             return res.status(403).json({ message: "Unauthorized" });
         }
 
         const jobId = application.jobId._id;
         const userId = application.userId._id;
 
-        console.log(`Job ID: ${jobId}, User ID: ${userId}`);
+        console.log(`[Analysis] Job ID: ${jobId}, User ID: ${userId}`);
 
         // 2. Fetch Embeddings
         const jobEmbedding = await Embedding.findOne({ jobId: jobId, type: "job" });
         const cvEmbedding = await Embedding.findOne({ userId: userId, type: "cv" });
 
-        if (!jobEmbedding) {
-            console.log("Job embedding not found");
-        }
-        if (!cvEmbedding) {
-            console.log("CV embedding not found");
-        }
+        if (!jobEmbedding) console.log(`[Analysis] Job embedding NOT found for ${jobId}`);
+        else console.log(`[Analysis] Job embedding found`);
+
+        if (!cvEmbedding) console.log(`[Analysis] CV embedding NOT found for ${userId}`);
+        else console.log(`[Analysis] CV embedding found`);
 
         let similarityScore = 0;
-        let jobText = jobEmbedding ? jobEmbedding.text : "Job details not available for comparison.";
-        let userCvText = cvEmbedding ? cvEmbedding.text : "CV details not available for comparison.";
+        let jobText = jobEmbedding ? jobEmbedding.text : "Job details not available for comparison. (Embedding missing)";
+        let userCvText = cvEmbedding ? cvEmbedding.text : "CV details not available for comparison. (Embedding missing)";
 
         // 3. Calculate Similarity
         if (jobEmbedding && cvEmbedding) {
-            const { cosineSimilarity } = require("../utils/similarity");
-            similarityScore = cosineSimilarity(jobEmbedding.embedding, cvEmbedding.embedding);
-            console.log(`Calculated similarity score: ${similarityScore}`);
+            try {
+                similarityScore = cosineSimilarity(jobEmbedding.embedding, cvEmbedding.embedding);
+                console.log(`[Analysis] Calculated score: ${similarityScore}`);
+            } catch (calcError) {
+                console.error("[Analysis] Error calculating similarity:", calcError);
+            }
         }
 
-        // Format score to percentage (0-100)
         const scorePercentage = Math.round(similarityScore * 100);
+
+        // 4. Generate AI Summary (RAG)
+        let aiSummary = "No AI analysis available at this time.";
+        if (jobEmbedding && cvEmbedding) {
+            try {
+                console.log("[Analysis] Starting AI Summary generation...");
+                if (!process.env.HUGGINGFACE_API_KEY) {
+                    throw new Error("HUGGINGFACE_API_KEY is missing in .env");
+                }
+                console.log("[Analysis] HF Key prefix:", process.env.HUGGINGFACE_API_KEY.substring(0, 10));
+
+                const prompt = `Act as an expert recruiter. Compare the following Job Requirements and Candidate CV. 
+Provide a concise, 3-sentence summary explaining the match quality and highlighting one key strength and one potential gap.
+
+Job Requirements:
+${jobText.substring(0, 800)}
+
+Candidate CV:
+${userCvText.substring(0, 800)}
+
+Summary:`.trim();
+
+                const generation = await hf.chatCompletion({
+                    model: "meta-llama/Llama-3.2-1B-Instruct",
+                    messages: [
+                        { role: "user", content: prompt }
+                    ],
+                    max_tokens: 200,
+                    temperature: 0.7,
+                });
+
+                aiSummary = generation.choices[0].message.content?.trim() || "AI generated an empty response.";
+                console.log("[Analysis] AI Summary generated successfully");
+            } catch (genError: any) {
+                console.error("[Analysis] Error generating AI summary:", genError);
+
+                // Construct a detailed error for debugging
+                const status = genError.status || "Unknown";
+                const msg = genError.message || "No error message provided";
+                aiSummary = `AI Service Error (${status}): ${msg}. This usually means the model provider is temporarily down.`;
+            }
+        }
 
         res.json({
             similarityScore: scorePercentage,
             jobText,
             userCvText,
-            applicantName: `${application.userId.firstName} ${application.userId.lastName}`,
-            jobTitle: application.jobId.vacancy
+            aiSummary,
+            applicantName: `${(application.userId as any).firstName} ${(application.userId as any).lastName}`,
+            jobTitle: (application.jobId as any).vacancy
         });
 
     } catch (err) {
-        console.error("Error analyzing application:", err);
+        console.error("[Analysis] Server error:", err);
         res.status(500).json({ message: "Server error", error: err instanceof Error ? err.message : "Unknown error" });
     }
 });

@@ -84,7 +84,7 @@ export default function PostJobPage() {
         e.preventDefault();
         setMessage("");
 
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("employeeToken");
         if (!token) {
             setMessage("You must be logged in.");
             return;
