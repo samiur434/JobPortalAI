@@ -68,8 +68,3 @@ A smart, AI-powered job recruitment platform that intelligently connects candida
     npm run dev
     ```
 
-## 📸 Screenshots
-*(Add screenshots of your Dashboard and Analysis page here)*
-
-## 📄 License
-This project is licensed under the MIT License.
