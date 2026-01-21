@@ -8,15 +8,15 @@ export default function DashboardPage() {
 
     useEffect(() => {
         // Check if user is logged in (token in localStorage)
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("userToken");
         if (!token) {
-            router.push("/login"); // redirect to login if not logged in
+            router.push("/user/login"); // redirect to login if not logged in
         }
     }, [router]);
 
     const handleLogout = () => {
-        localStorage.removeItem("token");
-        router.push("/login");
+        localStorage.removeItem("userToken");
+        router.push("/");
     };
 
     return (
@@ -27,7 +27,12 @@ export default function DashboardPage() {
                 <ul className="flex gap-6">
                     <li>
                         <button
-                            onClick={() => router.push("/look-jobs")}
+
+                            onClick={() => {
+                                console.log("Pushing /user/available-jobs");
+                                router.push("/user/available-jobs");
+                            }}
+
                             className="hover:text-blue-600"
                         >
                             Look Jobs

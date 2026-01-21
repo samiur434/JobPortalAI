@@ -15,9 +15,9 @@ export default function Home() {
   };
 
   return (
-    <div className="font-sans">
+    <div className="text-black-900 font-sans bg-white">
       {/* Navbar */}
-      <nav className="flex justify-between items-center p-6 bg-white shadow-md">
+      <nav className="flex justify-between items-center p-6 bg-white shadow-md ">
         <div className="text-2xl font-bold text-blue-600">JobPortal</div>
         <div className="flex space-x-6">
           <a href="#" className="hover:text-blue-600">Home</a>
@@ -37,27 +37,23 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="bg-gray-100 py-24 text-center">
-        <h1 className="text-5xl font-bold mb-4">Find Your Dream Job</h1>
-        <p className="text-xl mb-8">Connect with top employers and take your career to the next level.</p>
-        <a href="/jobs" className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Search Jobs</a>
+        {/* Add text-slate-900 or text-black directly here */}
+        <h1 className="text-5xl font-bold mb-4 text-slate-900">Find Your Dream Job</h1>
+        <p className="text-xl mb-8 text-slate-700">Connect with top employers and take your career to the next level.</p>
+        <a href="/user/available-jobs" className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Search Jobs</a>
       </section>
 
-      {/* Achievements Section */}
-      <section className="py-20 bg-white text-center">
-        <h2 className="text-3xl font-bold mb-12">Our Achievements</h2>
-        <div className="flex flex-wrap justify-center gap-8">
-          {[
-            { count: "500+", label: "Jobs Posted" },
-            { count: "2000+", label: "Applicants" },
-            { count: "100+", label: "Companies" },
-          ].map((item, idx) => (
-            <div key={idx} className="p-6 border rounded-lg w-64">
-              <h3 className="text-4xl font-bold mb-2">{item.count}</h3>
-              <p>{item.label}</p>
-            </div>
-          ))}
+      {[
+        { count: "500+", label: "Jobs Posted" },
+        { count: "2000+", label: "Applicants" },
+        { count: "100+", label: "Companies" },
+      ].map((item, idx) => (
+        <div key={idx} className="p-6 border rounded-lg w-64 bg-white shadow-sm">
+          {/* Added text-blue-700 and text-gray-600 */}
+          <h3 className="text-4xl font-bold mb-2 text-blue-700">{item.count}</h3>
+          <p className="text-gray-600 font-medium">{item.label}</p>
         </div>
-      </section>
+      ))}
 
       {/* Contact Form */}
       <section id="contact" className="py-20 bg-gray-100 text-center">

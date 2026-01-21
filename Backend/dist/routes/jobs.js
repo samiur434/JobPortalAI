@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const inference_1 = require("@huggingface/inference");
 const Job_1 = __importDefault(require("../models/Job"));
 const Embedding_1 = __importDefault(require("../models/Embedding"));
+const AppliedJob_1 = __importDefault(require("../models/AppliedJob"));
 const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
 const hf = new inference_1.HfInference(process.env.HUGGINGFACE_API_KEY);
@@ -97,6 +98,110 @@ router.get("/my-jobs", auth_1.authMiddleware, async (req, res) => {
     catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error" });
+    }
+});
+// Get all available jobs for users to apply
+router.get("/all", async (req, res) => {
+    try {
+        console.log("Fetching all jobs...");
+        const jobs = await Job_1.default.find().populate("employeeId", "companyInfo").sort({ createdAt: -1 });
+        console.log("Found jobs:", jobs.length);
+        res.json({ jobs });
+    }
+    catch (err) {
+        console.error("Error fetching jobs:", err);
+        res.status(500).json({ message: "Server error", error: err instanceof Error ? err.message : "Unknown error" });
+    }
+});
+// Apply for a job
+router.post("/apply", auth_1.authMiddleware, async (req, res) => {
+    try {
+        const { jobId } = req.body;
+        const userId = req.user.userId;
+        if (!jobId) {
+            return res.status(400).json({ message: "Job ID is required" });
+        }
+        // Check if job exists
+        const job = await Job_1.default.findById(jobId);
+        if (!job) {
+            return res.status(404).json({ message: "Job not found" });
+        }
+        // Check if already applied
+        const existingApplication = await AppliedJob_1.default.findOne({ jobId, userId });
+        if (existingApplication) {
+            return res.status(400).json({ message: "You have already applied for this job" });
+        }
+        // Create application
+        const application = new AppliedJob_1.default({
+            jobId,
+            userId,
+            employeeId: job.employeeId,
+            status: "pending",
+        });
+        await application.save();
+        res.status(201).json({ message: "Application submitted successfully", applicationId: application._id });
+    }
+    catch (err) {
+        console.error("Error applying for job:", err);
+        res.status(500).json({ message: "Server error", error: err instanceof Error ? err.message : "Unknown error" });
+    }
+});
+// Get applications for employee's jobs
+router.get("/applications", auth_1.authMiddleware, async (req, res) => {
+    try {
+        const employeeId = req.user.employeeId;
+        // Get all jobs posted by this employee
+        const employeeJobs = await Job_1.default.find({ employeeId });
+        const jobIds = employeeJobs.map(job => job._id);
+        // Get all applications for these jobs
+        const applications = await AppliedJob_1.default.find({ jobId: { $in: jobIds } })
+            .populate("jobId", "companyInfo vacancy salary jobLocation")
+            .populate("userId", "firstName lastName email")
+            .sort({ appliedAt: -1 });
+        res.json({ applications });
+    }
+    catch (err) {
+        console.error("Error fetching applications:", err);
+        res.status(500).json({ message: "Server error", error: err instanceof Error ? err.message : "Unknown error" });
+    }
+});
+// Check if user already applied for a job
+router.get("/check-applied/:jobId", auth_1.authMiddleware, async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const userId = req.user.userId;
+        const application = await AppliedJob_1.default.findOne({ jobId, userId });
+        res.json({ hasApplied: !!application });
+    }
+    catch (err) {
+        console.error("Error checking application status:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+// Update application status
+router.put("/application/:applicationId/status", auth_1.authMiddleware, async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+        const { status } = req.body;
+        const employeeId = req.user.employeeId;
+        if (!["pending", "reviewed", "accepted", "rejected"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+        // Verify that the application belongs to one of the employee's jobs
+        const application = await AppliedJob_1.default.findById(applicationId);
+        if (!application) {
+            return res.status(404).json({ message: "Application not found" });
+        }
+        if (application.employeeId.toString() !== employeeId) {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
+        application.status = status;
+        await application.save();
+        res.json({ message: "Application status updated", application });
+    }
+    catch (err) {
+        console.error("Error updating application status:", err);
+        res.status(500).json({ message: "Server error", error: err instanceof Error ? err.message : "Unknown error" });
     }
 });
 exports.default = router;

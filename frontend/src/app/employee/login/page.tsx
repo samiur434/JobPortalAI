@@ -33,7 +33,7 @@ export default function EmployeeLogin() {
             // TODO: Save token / redirect to dashboard
             console.log("Login success:", data);
             // For example:
-            localStorage.setItem("token", data.token);
+            localStorage.setItem("employeeToken", data.token);
             window.location.href = "/employee/dashboard";
 
         } catch (err) {

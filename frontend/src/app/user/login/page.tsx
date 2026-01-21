@@ -33,7 +33,7 @@ export default function UserLogin() {
             // TODO: Save token / redirect to dashboard
             console.log("Login success:", data);
             // For example:
-            localStorage.setItem("token", data.token);
+            localStorage.setItem("userToken", data.token);
             window.location.href = "/dashboard";
 
         } catch (err) {
