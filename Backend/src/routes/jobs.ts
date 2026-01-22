@@ -1,6 +1,8 @@
 import express from "express";
+import axios from "axios";
 import { HfInference } from "@huggingface/inference";
 import Job from "../models/Job";
+import User from "../models/Users";
 import Embedding from "../models/Embedding";
 import AppliedJob from "../models/AppliedJob";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
@@ -246,6 +248,37 @@ router.put("/application/:applicationId/status", authMiddleware, async (req: Aut
 
         application.status = status;
         await application.save();
+
+        console.log(`[StatusUpdate] New status: ${status}, WebhookURL: ${process.env.N8N_WEBHOOK_URL ? "Set" : "Not Set"}`);
+
+        // Trigger n8n webhook if status is accepted or rejected
+        if (["accepted", "rejected"].includes(status) && process.env.N8N_WEBHOOK_URL) {
+            console.log("[Notification] Attempting to send webhook...");
+            try {
+                const populatedApp = await AppliedJob.findById(applicationId)
+                    .populate("jobId")
+                    .populate("userId");
+
+                if (populatedApp) {
+                    const user = populatedApp.userId as any;
+                    const job = populatedApp.jobId as any;
+
+                    // Send data to n8n
+                    await axios.post(process.env.N8N_WEBHOOK_URL, {
+                        applicationId: populatedApp._id,
+                        status: status,
+                        candidateName: `${user.firstName} ${user.lastName}`,
+                        candidateEmail: user.email,
+                        jobDetails: job.requirements.substring(0, 100),
+                        location: job.location,
+                        salary: job.salary
+                    });
+                    console.log(`[Notification] Webhook sent to n8n for status: ${status}`);
+                }
+            } catch (webhookError) {
+                console.error("[Notification] Failed to send webhook to n8n:", webhookError);
+            }
+        }
 
         res.json({ message: "Application status updated", application });
     } catch (err) {
